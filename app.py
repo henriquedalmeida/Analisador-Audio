@@ -22,15 +22,6 @@ with st.expander("🎤 Gravar pelo microfone"):
 
     audio = audiorecorder("▶️ Gravar", "⏹️ Parar")
 
-    if st.session_state.get("is_recording"):
-        if "start_time" not in st.session_state or st.session_state.start_time is None:
-            st.session_state.start_time = time.time()
-        elapsed = int(time.time() - st.session_state.start_time)
-        seconds_placeholder.markdown(f"**⏱️ Gravando: {elapsed} segundos**")
-    else:
-        st.session_state.start_time = None
-        seconds_placeholder.empty()
-
     if len(audio) > 0:
         audio_buffer = io.BytesIO()
         audio.export(audio_buffer, format="wav")
