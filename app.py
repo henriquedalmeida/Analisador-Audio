@@ -8,6 +8,7 @@ import plotly.graph_objs as go
 import time
 from scipy.signal import stft, istft
 import pandas as pd
+import noisereduce as nr
 
 st.set_page_config(page_title="Analisador de Áudio", layout="centered")
 st.title("🔊 Análise e Tratamento de Ondas Sonoras")
@@ -76,28 +77,45 @@ if "audio_data" in st.session_state:
     filter_option = st.selectbox("Filtro aplicado:", ["Nenhum", "Remoção de Ruído"])
 
     if filter_option == "Remoção de Ruído":
-        st.markdown("Assumimos que os primeiros segundos do áudio contêm apenas ruído de fundo.")
-        noise_duration = st.slider("Duração do ruído (inicial) para análise (s)", 0.1, min(3.0, duration), 1.0, step=0.1)
+        if filter_option == "Remoção de Ruído":
+            st.markdown("🎚️ Ajuste manualmente a intensidade da remoção de ruído. Ideal para chiado ou zumbido constante.")
+        noise_floor_db = st.slider("🔉 Intensidade do ruído a ser removido (dB)", min_value=-100, max_value=0, value=-50, step=1)
 
-        f, t_seg, Zxx = stft(data, samplerate, nperseg=1024)
-        noise_frames = int((noise_duration * samplerate) / 512)
-        noise_profile = np.mean(np.abs(Zxx[:, :noise_frames]), axis=1, keepdims=True)
+        with st.spinner("Aplicando filtro espectral..."):
+            # Parâmetros STFT (significa "Transformada de Fourier de Curto Prazo")
+            n_fft = 1024
+            hop_length = n_fft // 2
 
-        magnitude = np.abs(Zxx)
-        phase = np.angle(Zxx)
-        cleaned_magnitude = np.maximum(magnitude - noise_profile, 0.0)
-        cleaned_Zxx = cleaned_magnitude * np.exp(1j * phase)
-        _, cleaned_audio = istft(cleaned_Zxx, samplerate)
+            # STFT
+            f, t_seg, Zxx = stft(data, fs=samplerate, nperseg=n_fft, noverlap=n_fft - hop_length)
+            magnitude = np.abs(Zxx)
+            phase = np.angle(Zxx)
 
-        st.success("Ruído removido com base nos primeiros segundos do áudio.")
-        audio_to_use = cleaned_audio
+            # Calcula limiar com base no slider (em dB)
+            magnitude_db = 20 * np.log10(magnitude + 1e-10)
+            threshold = noise_floor_db
+
+            # Cria máscara espectral
+            mask = np.where(magnitude_db > threshold, 1.0, 0.0)
+            cleaned_magnitude = magnitude * mask
+
+            # Reconstrói
+            cleaned_Zxx = cleaned_magnitude * np.exp(1j * phase)
+            _, cleaned_audio = istft(cleaned_Zxx, fs=samplerate, nperseg=n_fft, noverlap=n_fft - hop_length)
+
+            audio_to_use = cleaned_audio
+
+        st.success("Redução de ruído aplicada com controle manual.")
 
     else:
         audio_to_use = data
 
     st.markdown("---")
     st.markdown("### 3. 🔊 Áudio para reprodução")
-    st.audio(audio_to_use, format='audio/wav', sample_rate=samplerate)
+    audio_preview_buffer = io.BytesIO()
+    sf.write(audio_preview_buffer, audio_to_use, samplerate, format='WAV')
+    audio_preview_buffer.seek(0)
+    st.audio(audio_preview_buffer, format='audio/wav')
 
     st.markdown("---")
     st.markdown("### 4. 📈 Visualização dos Dados")
