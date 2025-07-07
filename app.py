@@ -74,7 +74,7 @@ if "audio_data" in st.session_state:
     st.markdown("---")
     st.markdown("### 2. 🧹 Escolha do filtro")
 
-    filter_option = st.selectbox("Filtro aplicado:", ["Nenhum", "Remoção de Ruído"])
+    filter_option = st.selectbox("Filtro aplicado:", ["Nenhum", "Remoção de Ruído", "Ajuste de Ganho"])
 
     if filter_option == "Remoção de Ruído":
         metodo = st.radio("Método de redução:", ["Automático (noisereduce)", "Manual (máscara espectral suave)"])
@@ -112,6 +112,18 @@ if "audio_data" in st.session_state:
 
             st.success("Redução de ruído aplicada com máscara suave.")
             audio_to_use = cleaned_audio
+            
+    elif filter_option == "Ajuste de Ganho":
+        st.markdown("🎚️ Aumente ou diminua o volume do áudio.")
+        gain_db = st.slider("🔊 Ganho (em dB)", min_value=-20.0, max_value=20.0, value=0.0, step=0.5)
+
+        gain_factor = 10 ** (gain_db / 20)  # Conversão de dB para fator linear
+        audio_to_use = data * gain_factor
+
+        # Clipping protection (limita entre -1.0 e 1.0)
+        audio_to_use = np.clip(audio_to_use, -1.0, 1.0)
+
+        st.success(f"Ganho de {gain_db:.1f} dB aplicado.")
 
     else:
         audio_to_use = data
