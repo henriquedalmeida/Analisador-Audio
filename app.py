@@ -77,35 +77,41 @@ if "audio_data" in st.session_state:
     filter_option = st.selectbox("Filtro aplicado:", ["Nenhum", "Remoção de Ruído"])
 
     if filter_option == "Remoção de Ruído":
-        if filter_option == "Remoção de Ruído":
-            st.markdown("🎚️ Ajuste manualmente a intensidade da remoção de ruído. Ideal para chiado ou zumbido constante.")
-        noise_floor_db = st.slider("🔉 Intensidade do ruído a ser removido (dB)", min_value=-100, max_value=0, value=-50, step=1)
+        metodo = st.radio("Método de redução:", ["Automático (noisereduce)", "Manual (máscara espectral suave)"])
 
-        with st.spinner("Aplicando filtro espectral..."):
-            # Parâmetros STFT (significa "Transformada de Fourier de Curto Prazo")
-            n_fft = 1024
-            hop_length = n_fft // 2
-
-            # STFT
-            f, t_seg, Zxx = stft(data, fs=samplerate, nperseg=n_fft, noverlap=n_fft - hop_length)
-            magnitude = np.abs(Zxx)
-            phase = np.angle(Zxx)
-
-            # Calcula limiar com base no slider (em dB)
-            magnitude_db = 20 * np.log10(magnitude + 1e-10)
-            threshold = noise_floor_db
-
-            # Cria máscara espectral
-            mask = np.where(magnitude_db > threshold, 1.0, 0.0)
-            cleaned_magnitude = magnitude * mask
-
-            # Reconstrói
-            cleaned_Zxx = cleaned_magnitude * np.exp(1j * phase)
-            _, cleaned_audio = istft(cleaned_Zxx, fs=samplerate, nperseg=n_fft, noverlap=n_fft - hop_length)
-
+        if metodo == "Automático (noisereduce)":
+            with st.spinner("Aplicando redução automática..."):
+                cleaned_audio = nr.reduce_noise(y=data, sr=samplerate)
+            st.success("Redução automática aplicada com sucesso.")
             audio_to_use = cleaned_audio
 
-        st.success("Redução de ruído aplicada com controle manual.")
+        elif metodo == "Manual (máscara espectral suave)":
+            st.markdown("🎚️ Ajuste o nível de ruído estimado (em dB).")
+            noise_floor_db = st.slider("🔉 Intensidade do ruído a ser removido (dB)", min_value=-100, max_value=0, value=-50, step=1)
+
+            with st.spinner("Aplicando filtro espectral com máscara suave..."):
+                n_fft = 1024
+                hop_length = n_fft // 2
+
+                # STFT
+                f, t_seg, Zxx = stft(data, fs=samplerate, nperseg=n_fft, noverlap=n_fft - hop_length)
+                magnitude = np.abs(Zxx)
+                phase = np.angle(Zxx)
+
+                # Convertendo para dB
+                magnitude_db = 20 * np.log10(magnitude + 1e-10)
+                threshold = noise_floor_db
+
+                # Máscara suave baseada em função sigmoide
+                transition_db = 10  # quanto maior, mais gradual
+                mask = 1 / (1 + np.exp(-(magnitude_db - threshold) / transition_db))
+
+                cleaned_magnitude = magnitude * mask
+                cleaned_Zxx = cleaned_magnitude * np.exp(1j * phase)
+                _, cleaned_audio = istft(cleaned_Zxx, fs=samplerate, nperseg=n_fft, noverlap=n_fft - hop_length)
+
+            st.success("Redução de ruído aplicada com máscara suave.")
+            audio_to_use = cleaned_audio
 
     else:
         audio_to_use = data
