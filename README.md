@@ -1,54 +1,73 @@
 # 🔊 Analisador de Espectro de Áudio
 
-Aplicativo web interativo criado com [Streamlit](https://streamlit.io) para:
+Aplicativo web interativo criado com [Streamlit](https://streamlit.io) para análise e tratamento de ondas sonoras:
 
-- Gravar ou enviar arquivos de áudio (`.wav` ou `.mp3`)
-- Visualizar a forma de onda e o espectro de frequência
-- Aplicar filtro de remoção de ruído
-- Reproduzir o áudio processado
-- Exportar o espectro como CSV e o áudio processado como MP3
+- **Gravação e Upload**: Grave áudio via microfone ou envie arquivos `.wav` e `.mp3`
+- **Tratamento de Áudio**: Aplique filtros de remoção de ruído, ajuste de ganho e equalização profissional
+- **Equalizador Paramétrico**: 10 bandas de frequência com presets profissionais e controle avançado
+- **Visualização Avançada**: Forma de onda temporal, espectro de frequência e curva de resposta de EQ
+- **Análise em Tempo Real**: Detecção automática da frequência dominante
+- **Exportação Completa**: CSV com dados espectrais e áudio processado em MP3
 
 ## 🚀 Demonstração
 
-> Interface baseada na web, basta rodar localmente e abrir no navegador.
+> Interface web responsiva - execute localmente e acesse via navegador.
 
 ## 🖼️ Capturas de Tela
 
-| Gravação de áudio                  | Espectro de Frequência             | Exportação                         |
-| ---------------------------------- | ---------------------------------- | ---------------------------------- |
+| Gravação de Áudio                | Análise Espectral                | Exportação de Dados              |
+| --------------------------------- | --------------------------------- | --------------------------------- |
 | ![gravação](docs/img/gravacao.png) | ![espectro](docs/img/espectro.png) | ![exportar](docs/img/exportar.png) |
 
 ## 📦 Requisitos
 
-- Python 3.8 ou superior
-- FFmpeg (para uso com `pydub`)
+- **Python**: 3.8 ou superior
+- **FFmpeg**: Necessário para processamento de áudio com `pydub`
 
 ### Instalação do FFmpeg
 
-**Windows**
-
+**Windows:**
 ```bash
 1. Baixe em: https://ffmpeg.org/download.html
-
 2. Extraia o conteúdo
-
 3. Adicione o caminho da pasta bin ao PATH do sistema
+```
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update && sudo apt install ffmpeg
 ```
 
 ## 📥 Instalação
 
-Clone o repositório e instale as dependências:
-
+1. **Clone o repositório:**
 ```bash
-1. git clone https://github.com/Projeto-Fisica-2025/Analisador-Audio.git
-2. cd Analisador-Audio
-3. venv\Scripts\activate
-4. pip install -r requirements.txt
+git clone https://github.com/Projeto-Fisica-2025/Analisador-Audio.git
+cd Analisador-Audio
+```
+
+2. **Configure o ambiente virtual:**
+```bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# macOS/Linux
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+3. **Instale as dependências:**
+```bash
+pip install -r requirements.txt
 ```
 
 ## ▶️ Executar o App
-
-Inicie o Streamlit com:
 
 ```bash
 streamlit run app.py
@@ -56,32 +75,153 @@ streamlit run app.py
 
 O navegador será aberto automaticamente em `http://localhost:8501`.
 
+## 🔧 Funcionalidades Principais
+
+### 🎤 Entrada de Áudio
+- **Upload de arquivos**: Suporte para `.wav` e `.mp3`
+- **Gravação direta**: Interface integrada para gravação via microfone
+- **Conversão automática**: MP3 convertido para WAV em memória
+
+### 🧹 Tratamento de Áudio
+
+#### **Remoção de Ruído**
+- **Método Automático**: Utiliza `noisereduce` para detecção e remoção inteligente
+- **Método Manual**: Filtro espectral com máscara suave configurável
+  - Controle de intensidade do ruído (-100dB a 0dB)
+  - Transição suave baseada em função sigmoide
+
+#### **Ajuste de Ganho**
+- Controle de volume de -20dB a +20dB
+- Proteção contra clipping automática
+- Conversão dB para fator linear
+
+#### **Equalizador Paramétrico Profissional**
+- **10 bandas de frequência**: 31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz
+- **Presets Profissionais**: 
+  - Rock, Pop, Jazz, Classical, Electronic
+  - Vocal Enhancement, Bass Boost, Treble Boost
+  - Presence e Flat (Neutro)
+- **Controles Avançados**:
+  - Q-Factor ajustável (0.1 a 5.0) para largura da banda
+  - Compensação automática de ganho
+  - Proteção contra distorção
+- **Visualização em Tempo Real**:
+  - Curva de resposta de frequência interativa
+  - Marcadores das bandas ativas
+  - Escala logarítmica profissional
+- **Algoritmo Biquad**: Filtros peaking de alta qualidade
+- **Interface Intuitiva**: Layout em duas colunas com controles dedicados
+
+### 📊 Visualização e Análise
+
+#### **Forma de Onda Temporal**
+- Gráfico interativo com Plotly
+- Eixo X: Tempo em segundos
+- Eixo Y: Amplitude do sinal
+
+#### **Espectro de Frequência**
+- Análise FFT em tempo real
+- Detecção automática da frequência dominante
+- Visualização de 0Hz até Nyquist (metade da taxa de amostragem)
+
+#### **Curva de Resposta do Equalizador**
+- Visualização em tempo real das modificações
+- Escala logarítmica de 20Hz a 20kHz
+- Marcadores visuais das bandas ativas
+- Linha de referência em 0dB
+
+## 🎛️ Equalizador Paramétrico - Guia Completo
+
+### Bandas de Frequência
+
+| Frequência | Nome | Descrição | Uso Típico |
+|------------|------|-----------|-------------|
+| **31 Hz** | Sub-Bass | Frequências muito graves | Reforço de bateria, efeitos |
+| **62 Hz** | Bass | Graves fundamentais | Baixo, bumbo, fundação |
+| **125 Hz** | Low-Mid | Médio-graves | Warmth, corpo dos instrumentos |
+| **250 Hz** | Mid-Bass | Transição médio-grave | Definição de baixo, vocais |
+| **500 Hz** | Midrange | Médios centrais | Fundamentais vocais |
+| **1 kHz** | Presence | Presença | Clareza vocal, inteligibilidade |
+| **2 kHz** | Clarity | Clareza | Definição, articulação |
+| **4 kHz** | Brilliance | Brilho | Presença, mordida |
+| **8 kHz** | Air | Ar/respiração | Sibilância, detalhes |
+| **16 kHz** | Sparkle | Brilho extremo | Harmonics, espacialidade |
+
+### Presets Profissionais
+
+- **🎸 Rock**: Médios agressivos, graves potentes, agudos brilhantes
+- **🎤 Pop**: Vocais realçados, graves controlados, agudos suaves
+- **🎷 Jazz**: Resposta natural, médios aquecidos, graves definidos
+- **🎼 Classical**: Resposta linear, dinâmica preservada
+- **🎹 Electronic**: Graves estendidos, agudos cristalinos
+- **🗣️ Vocal Enhancement**: Frequências de fala otimizadas
+- **🔊 Bass Boost**: Reforço de graves para sistemas pequenos
+- **✨ Treble Boost**: Clareza e definição aumentadas
+- **🎯 Presence**: Foco nas frequências de presença
+
+
+### 📤 Exportação de Dados
+
+#### **Dados Espectrais**
+- Arquivo CSV com frequências e amplitudes
+- Formato: `espectro_audio.csv`
+- Precisão de 4 casas decimais
+
+#### **Áudio Processado**
+- Exportação em formato MP3
+- Bitrate: 192kbps
+- Nome: `audio_processado.mp3`
+
 ## 📁 Estrutura do Projeto
 
-```bash
+```
 Analisador-Audio/
-│
-├── app.py                # Aplicativo principal
-├── requirements.txt      # Arquivo de dependências
-├── README.md             # Documentação do projeto
+├── app.py                    # Aplicativo principal Streamlit
+├── requirements.txt          # Dependências Python
+├── README.md                 # Documentação do projeto
+├── .gitignore               # Arquivos ignorados pelo Git
+├── .venv/                   # Ambiente virtual (não versionado)
 └── docs/
-    └── img/              # Imagens de captura de tela usadas no README
+    └── img/                 # Capturas de tela do README
+        ├── gravacao.png
+        ├── espectro.png
+        └── exportar.png
 ```
 
-## 🔧 Funcionalidades
+## 🛠️ Tecnologias Utilizadas
 
-- 📁 Upload de .wav e .mp3
+- **Streamlit**: Interface web interativa
+- **NumPy**: Processamento numérico e FFT
+- **SciPy**: Análise de sinais (STFT/ISTFT) e filtros biquad
+- **Plotly**: Visualizações interativas e curvas de resposta
+- **SoundFile**: Leitura/escrita de arquivos de áudio
+- **PyDub**: Conversão de formatos de áudio
+- **NoiseReduce**: Redução automática de ruído
+- **Pandas**: Manipulação de dados para exportação
 
-- 🎤 Gravação de áudio via microfone do navegador
+### Algoritmos de Processamento
 
-- 🧹 Filtro de remoção de ruído baseado nos primeiros segundos do áudio
+- **FFT (Fast Fourier Transform)**: Análise espectral
+- **STFT (Short-Time Fourier Transform)**: Redução de ruído espectral
+- **Filtros Biquad**: Equalização paramétrica de alta qualidade
+- **Máscaras Espectrais**: Redução inteligente de ruído
+- **Compressão Adaptativa**: Proteção contra clipping
 
-- 📊 Visualização interativa da forma de onda (tempo) e espectro de frequência (FFT) com Plotly
+## 🎯 Casos de Uso
 
-- 📥 Exportação:
+- **Análise acústica**: Identificação de frequências em gravações
+- **Processamento de áudio profissional**: Equalização e masterização de áudio
+- **Educação**: Demonstração de conceitos de ondas sonoras e filtragem
+- **Pesquisa**: Análise espectral de dados experimentais
+- **Produção musical**: Aplicação de presets e ajustes de EQ
+- **Tratamento de gravações**: Limpeza e melhoria da qualidade sonora
 
-  - CSV com frequências e amplitudes
+## 👥 Autores
 
-  - Áudio processado em .mp3
+Desenvolvido por:
+- [Henrique de Almeida Silva](https://github.com/Dev-Henrique-Almeida)
+- [Claudierio Baltazar Barra Nova](https://github.com/Claudierio)
 
-Feito por [Henrique de Almeida Silva](https://github.com/Dev-Henrique-Almeida) e [Claudierio Baltazar Barra Nova](https://github.com/Claudierio)
+---
+
+**Projeto de Física 2025** - Análise e Tratamento de Ondas Sonoras
