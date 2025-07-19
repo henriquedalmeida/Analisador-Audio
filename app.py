@@ -147,11 +147,12 @@ if "audio_data" in st.session_state:
             "Presence": [0, 0, 1, 2, 3, 4, 2, 1, 0, 0]
         }
         
-        col_preset, col_reset = st.columns([3, 1])
+        col_preset, col_reset = st.columns([4, 1])
         with col_preset:
             selected_preset = st.selectbox("🎵 Presets Profissionais:", list(presets.keys()))
         with col_reset:
-            if st.button("🔄 Reset"):
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Reset", use_container_width=True):
                 selected_preset = "Flat (Neutro)"
         
         # Bandas de frequência profissionais (10-band parametric EQ)
