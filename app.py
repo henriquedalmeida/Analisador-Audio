@@ -6,7 +6,7 @@ from audiorecorder import audiorecorder
 from pydub import AudioSegment
 import plotly.graph_objs as go
 import time
-from scipy.signal import stft, istft
+from scipy.signal import stft, istft, butter, filtfilt
 import pandas as pd
 import noisereduce as nr
 
@@ -74,7 +74,12 @@ if "audio_data" in st.session_state:
     st.markdown("---")
     st.markdown("### 2. 🧹 Escolha do filtro")
 
-    filter_option = st.selectbox("Filtro aplicado:", ["Nenhum", "Remoção de Ruído", "Ajuste de Ganho"])
+    filter_option = st.selectbox("Filtro aplicado:", [
+        "Nenhum", 
+        "Remoção de Ruído", 
+        "Ajuste de Ganho",
+        "Equalizador"
+    ])
 
     if filter_option == "Remoção de Ruído":
         metodo = st.radio("Método de redução:", ["Automático (noisereduce)", "Manual (máscara espectral suave)"])
@@ -125,6 +130,193 @@ if "audio_data" in st.session_state:
 
         st.success(f"Ganho de {gain_db:.1f} dB aplicado.")
 
+    elif filter_option == "Equalizador":
+        st.markdown("🎛️ **Equalizador Paramétrico Profissional**")
+        
+        # Presets profissionais
+        presets = {
+            "Flat (Neutro)": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            "Rock": [-1, 2, 4, 2, -1, -2, 3, 5, 6, 4],
+            "Pop": [1, 3, 2, 0, -1, -1, 2, 4, 5, 3],
+            "Jazz": [2, 1, 0, 1, 2, 1, 0, 1, 2, 1],
+            "Classical": [2, 1, -1, -2, -1, 1, 2, 3, 4, 3],
+            "Electronic": [3, 2, 0, -2, -1, 2, 4, 5, 6, 5],
+            "Vocal Enhancement": [0, 0, -1, 2, 4, 3, 1, -1, 0, 0],
+            "Bass Boost": [6, 4, 2, 0, -1, -1, 0, 1, 1, 0],
+            "Treble Boost": [0, 0, -1, -1, 0, 2, 4, 6, 7, 6],
+            "Presence": [0, 0, 1, 2, 3, 4, 2, 1, 0, 0]
+        }
+        
+        col_preset, col_reset = st.columns([3, 1])
+        with col_preset:
+            selected_preset = st.selectbox("🎵 Presets Profissionais:", list(presets.keys()))
+        with col_reset:
+            if st.button("🔄 Reset"):
+                selected_preset = "Flat (Neutro)"
+        
+        # Bandas de frequência profissionais (10-band parametric EQ)
+        freq_bands = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+        band_labels = ["31Hz\nSub-Bass", "62Hz\nBass", "125Hz\nLow-Mid", "250Hz\nMid-Bass", 
+                      "500Hz\nMidrange", "1kHz\nPresence", "2kHz\nClarity", "4kHz\nBrilliance", 
+                      "8kHz\nAir", "16kHz\nSparkle"]
+        
+        # Configurações avançadas
+        with st.expander("⚙️ Configurações Avançadas"):
+            q_factor = st.slider("🔧 Q-Factor (Largura da Banda)", min_value=0.1, max_value=5.0, value=1.0, step=0.1,
+                                help="Controla a largura da banda de frequência. Valores menores = banda mais larga")
+            auto_gain = st.checkbox("🔄 Compensação Automática de Ganho", value=True,
+                                  help="Ajusta automaticamente o volume para evitar clipping")
+        
+        # Interface do equalizador
+        st.markdown("#### 🎚️ Controles de Equalização")
+        gains = []
+        
+        # Organiza em 2 colunas para melhor visualização
+        col1, col2 = st.columns(2)
+        
+        # Inicializa com preset selecionado
+        preset_gains = presets[selected_preset]
+        
+        with col1:
+            for i in range(5):
+                gain = st.slider(
+                    band_labels[i], 
+                    min_value=-15.0, 
+                    max_value=15.0, 
+                    value=float(preset_gains[i]), 
+                    step=0.5,
+                    key=f"eq_band_{i}"
+                )
+                gains.append(gain)
+        
+        with col2:
+            for i in range(5, 10):
+                gain = st.slider(
+                    band_labels[i], 
+                    min_value=-15.0, 
+                    max_value=15.0, 
+                    value=float(preset_gains[i]), 
+                    step=0.5,
+                    key=f"eq_band_{i}"
+                )
+                gains.append(gain)
+        
+        # Visualização da curva de resposta de frequência
+        st.markdown("#### 📊 Curva de Resposta de Frequência")
+        
+        # Criar curva suavizada para visualização
+        freq_response = np.logspace(np.log10(20), np.log10(20000), 1000)
+        response_db = np.zeros_like(freq_response)
+        
+        for freq, gain in zip(freq_bands, gains):
+            if abs(gain) > 0.01:
+                # Simula resposta de filtro peaking/shelving
+                for j, f in enumerate(freq_response):
+                    # Função de resposta simplificada para visualização
+                    bandwidth = freq / q_factor
+                    if f <= freq:
+                        response_db[j] += gain * np.exp(-((np.log(freq/f))**2) / (2 * (bandwidth/freq)**2))
+                    else:
+                        response_db[j] += gain * np.exp(-((np.log(f/freq))**2) / (2 * (bandwidth/freq)**2))
+        
+        fig_response = go.Figure()
+        fig_response.add_trace(go.Scatter(
+            x=freq_response, 
+            y=response_db, 
+            mode="lines", 
+            line=dict(color="green", width=3),
+            name="Resposta EQ"
+        ))
+        
+        # Linha de referência (0 dB)
+        fig_response.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+        
+        # Marcadores das bandas
+        for freq, gain in zip(freq_bands, gains):
+            if abs(gain) > 0.01:
+                fig_response.add_trace(go.Scatter(
+                    x=[freq], y=[gain], 
+                    mode="markers", 
+                    marker=dict(size=10, color="red"),
+                    name=f"{freq}Hz: {gain:+.1f}dB",
+                    showlegend=False
+                ))
+        
+        fig_response.update_layout(
+            xaxis_title="Frequência (Hz)",
+            yaxis_title="Ganho (dB)",
+            xaxis=dict(type="log", range=[np.log10(20), np.log10(20000)]),
+            yaxis=dict(range=[-20, 20]),
+            height=300,
+            showlegend=False
+        )
+        st.plotly_chart(fig_response, use_container_width=True)
+        
+        with st.spinner("Aplicando equalização profissional..."):
+            def apply_peaking_filter(signal, freq, gain_db, q, fs):
+                """Aplica filtro peaking EQ usando biquad"""
+                if abs(gain_db) < 0.01:
+                    return signal
+                
+                # Converte para radianos
+                w = 2 * np.pi * freq / fs
+                
+                # Parâmetros do filtro biquad peaking
+                A = 10 ** (gain_db / 40)
+                alpha = np.sin(w) / (2 * q)
+                
+                # Coeficientes do filtro biquad
+                b0 = 1 + alpha * A
+                b1 = -2 * np.cos(w)
+                b2 = 1 - alpha * A
+                a0 = 1 + alpha / A
+                a1 = -2 * np.cos(w)
+                a2 = 1 - alpha / A
+                
+                # Normaliza
+                b = np.array([b0, b1, b2]) / a0
+                a = np.array([a0, a1, a2]) / a0
+                
+                # Aplica filtro
+                filtered = filtfilt(b, a, signal)
+                return filtered
+            
+            # Inicia com o áudio original
+            audio_to_use = data.copy()
+            
+            # Aplica cada banda de equalização
+            for freq, gain in zip(freq_bands, gains):
+                if abs(gain) > 0.01:
+                    audio_to_use = apply_peaking_filter(audio_to_use, freq, gain, q_factor, samplerate)
+            
+            # Compensação automática de ganho
+            if auto_gain:
+                # Calcula o ganho total aplicado
+                total_positive_gain = sum([g for g in gains if g > 0])
+                if total_positive_gain > 3:  # Se houver ganho significativo
+                    # Aplica compressão suave para evitar clipping
+                    peak = np.max(np.abs(audio_to_use))
+                    if peak > 0.95:
+                        compression_ratio = 0.95 / peak
+                        audio_to_use *= compression_ratio
+                        st.info(f"💡 Compressão aplicada: {20*np.log10(compression_ratio):.1f} dB para evitar distorção")
+            
+            # Proteção contra clipping
+            audio_to_use = np.clip(audio_to_use, -1.0, 1.0)
+        
+        # Informações técnicas
+        applied_bands = [(f, g) for f, g in zip(freq_bands, gains) if abs(g) > 0.01]
+        if applied_bands:
+            st.success("✅ Equalização aplicada com sucesso!")
+            with st.expander("📋 Detalhes Técnicos"):
+                st.markdown("**Bandas modificadas:**")
+                for freq, gain in applied_bands:
+                    st.markdown(f"• {freq} Hz: {gain:+.1f} dB")
+                st.markdown(f"**Q-Factor:** {q_factor}")
+                st.markdown(f"**Compensação de Ganho:** {'Ativada' if auto_gain else 'Desativada'}")
+        else:
+            st.info("ℹ️ Nenhuma modificação aplicada (todas as bandas em 0 dB)")
+        
     else:
         audio_to_use = data
 
