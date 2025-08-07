@@ -67,7 +67,26 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## ▶️ Executar o App
+## 📱 Gerar APK Android
+
+Para criar uma versão mobile Android:
+
+1. **Consulte o guia completo:** [GUIA_APK.md](GUIA_APK.md)
+
+2. **Opção rápida - GitHub Actions:**
+   ```bash
+   git add .
+   git commit -m "Build mobile app"
+   git push origin main
+   # Vá em Actions no GitHub e baixe o APK
+   ```
+
+3. **Teste local (apenas interface):**
+   ```bash
+   python test_mobile.py
+   ```
+
+## ▶️ Executar o App Web
 
 ```bash
 streamlit run app.py
