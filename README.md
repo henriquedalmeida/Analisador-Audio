@@ -73,6 +73,12 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## ▶️ Executar o App com configuracoes otimizadas
+```bash
+streamlit run app.py --server.maxMessageSize=500 --server.maxUploadSize=500
+```
+
+
 O navegador será aberto automaticamente em `http://localhost:8501`.
 
 ## 🔧 Funcionalidades Principais

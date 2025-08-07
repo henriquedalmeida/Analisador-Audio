@@ -1,0 +1,19 @@
+[server]
+# Aumenta o limite de tamanho das mensagens de 200MB para 500MB
+maxMessageSize = 500
+
+# Aumenta o limite de upload de arquivos para 500MB
+maxUploadSize = 500
+
+# Otimizações de performance
+enableCORS = false
+enableXsrfProtection = false
+
+[client]
+# Reduz timeout para melhor responsividade
+caching = true
+displayEnabled = true
+
+[global]
+# Configurações de logging
+logLevel = "info"

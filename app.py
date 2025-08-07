@@ -9,13 +9,64 @@ import time
 from scipy.signal import stft, istft, butter, filtfilt
 import pandas as pd
 import noisereduce as nr
+from scipy import signal
 
 st.set_page_config(page_title="Analisador de Áudio", layout="centered")
+
+def downsample_if_needed(data, samplerate, max_duration=120, target_sr=22050):
+    """
+    Reduz a taxa de amostragem e/ou duração se o arquivo for muito grande
+    """
+    duration = len(data) / samplerate
+    
+    if duration > max_duration:
+        max_samples = int(max_duration * samplerate)
+        data = data[:max_samples]
+        st.warning(f"⚠️ Áudio truncado para {max_duration} segundos devido ao tamanho.")
+    
+    if samplerate > target_sr:
+        resampling_factor = target_sr / samplerate
+        new_length = int(len(data) * resampling_factor)
+        data = signal.resample(data, new_length)
+        samplerate = target_sr
+        st.info(f"ℹ️ Taxa de amostragem reduzida para {target_sr} Hz para otimização.")
+    
+    return data, samplerate
+
+def reduce_plot_density(x, y, max_points=5000):
+    """
+    Reduz a densidade de pontos para gráficos grandes
+    """
+    if len(x) <= max_points:
+        return x, y
+    
+    step = len(x) // max_points
+    return x[::step], y[::step]
 st.title("🔊 Análise e Tratamento de Ondas Sonoras")
+
+with st.sidebar:
+    st.header("⚙️ Configurações de Performance")
+    max_duration = st.slider("⏱️ Duração máxima (segundos)", 30, 300, 120, 30,
+                            help="Áudios longos serão truncados para otimizar performance")
+    target_samplerate = st.selectbox("🎵 Taxa de amostragem alvo", 
+                                   [16000, 22050, 44100], 
+                                   index=1,
+                                   help="Taxas menores = melhor performance")
+    max_plot_points = st.selectbox("📊 Densidade do gráfico",
+                                 [1000, 2500, 5000, 10000],
+                                 index=2,
+                                 help="Menos pontos = gráficos mais rápidos")
+    
+    st.markdown("---")
+    st.markdown("**💡 Dicas para arquivos grandes:**")
+    st.markdown("• Use taxas de amostragem menores")
+    st.markdown("• Limite a duração do áudio")
+    st.markdown("• Reduza a densidade dos gráficos")
 
 st.markdown("### 1. Envie um arquivo `.wav` ou `.mp3` ou grave pelo microfone")
 
 uploaded_file = st.file_uploader(label="📁 Envie um arquivo .wav ou .mp3", type=["wav", "mp3"])
+
 
 with st.expander("🎤 Gravar pelo microfone"):
     st.markdown("Clique para iniciar e pare quando desejar. O tempo será exibido durante a gravação.")
@@ -33,9 +84,7 @@ with st.expander("🎤 Gravar pelo microfone"):
         st.session_state["audio_source"] = "gravado"
         st.success("Áudio gravado com sucesso!")
 
-# Se o usuário enviou arquivo pelo uploader, atualiza o áudio no session_state e remove áudio gravado
 if uploaded_file is not None:
-    # Se havia áudio gravado, remove antes
     if st.session_state.get("audio_source") == "gravado":
         st.session_state.pop("audio_data", None)
         st.session_state.pop("audio_name", None)
@@ -52,24 +101,43 @@ if "audio_data" in st.session_state:
     audio_file = io.BytesIO(audio_bytes)
     audio_file.name = st.session_state.get("audio_name", "audio.wav")
 
+    # Verifica o tamanho do arquivo
+    file_size_mb = len(audio_bytes) / (1024 * 1024)
+    st.info(f"📁 Tamanho do arquivo: {file_size_mb:.1f} MB")
+    
+    if file_size_mb > 50:
+        st.warning("⚠️ Arquivo grande detectado. Aplicando otimizações automáticas...")
+
     filename = audio_file.name.lower()
-    if filename.endswith(".mp3"):
-        # Converte mp3 para wav na memória, porque a lib não aceita mp3 diretamente
-        audio_segment = AudioSegment.from_file(audio_file, format="mp3")
-        wav_buffer = io.BytesIO()
-        audio_segment.export(wav_buffer, format="wav")
-        wav_buffer.seek(0)
-        data, samplerate = sf.read(wav_buffer)
-    else:
-        data, samplerate = sf.read(audio_file)
+    
+    try:
+        if filename.endswith(".mp3"):
+            # Converte mp3 para wav na memória
+            audio_segment = AudioSegment.from_file(audio_file, format="mp3")
+            wav_buffer = io.BytesIO()
+            audio_segment.export(wav_buffer, format="wav")
+            wav_buffer.seek(0)
+            data, samplerate = sf.read(wav_buffer)
+        else:
+            data, samplerate = sf.read(audio_file)
 
-    # Caso seja estéreo, pega só um canal
-    if len(data.shape) > 1:
-        data = data[:, 0]
+        # Caso seja estéreo, pega só um canal
+        if len(data.shape) > 1:
+            data = data[:, 0]
 
-    duration = len(data) / samplerate
-    st.markdown(f"**Duração:** {duration:.2f} segundos")
-    st.markdown(f"**Taxa de amostragem:** {samplerate} Hz")
+        # Aplica otimizações para arquivos grandes
+        original_duration = len(data) / samplerate
+        data, samplerate = downsample_if_needed(data, samplerate, max_duration, target_samplerate)
+        
+        duration = len(data) / samplerate
+        st.markdown(f"**Duração original:** {original_duration:.2f} segundos")
+        if duration != original_duration:
+            st.markdown(f"**Duração processada:** {duration:.2f} segundos")
+        st.markdown(f"**Taxa de amostragem:** {samplerate} Hz")
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao processar o arquivo: {str(e)}")
+        st.stop()
 
     st.markdown("---")
     st.markdown("### 2. 🧹 Escolha do filtro")
@@ -225,7 +293,7 @@ if "audio_data" in st.session_state:
             x=freq_response, 
             y=response_db, 
             mode="lines", 
-            line=dict(color="green", width=3),
+            line={"color": "green", "width": 3},
             name="Resposta EQ"
         ))
         
@@ -238,7 +306,7 @@ if "audio_data" in st.session_state:
                 fig_response.add_trace(go.Scatter(
                     x=[freq], y=[gain], 
                     mode="markers", 
-                    marker=dict(size=10, color="red"),
+                    marker={"size": 10, "color": "red"},
                     name=f"{freq}Hz: {gain:+.1f}dB",
                     showlegend=False
                 ))
@@ -246,8 +314,8 @@ if "audio_data" in st.session_state:
         fig_response.update_layout(
             xaxis_title="Frequência (Hz)",
             yaxis_title="Ganho (dB)",
-            xaxis=dict(type="log", range=[np.log10(20), np.log10(20000)]),
-            yaxis=dict(range=[-20, 20]),
+            xaxis={"type": "log", "range": [np.log10(20), np.log10(20000)]},
+            yaxis={"range": [-20, 20]},
             height=300,
             showlegend=False
         )
@@ -333,34 +401,62 @@ if "audio_data" in st.session_state:
 
     st.subheader("🔵 Forma de Onda (Tempo)")
     t = np.arange(len(audio_to_use)) / samplerate
+    
+    # Reduz densidade para gráficos grandes
+    t_plot, audio_plot = reduce_plot_density(t, audio_to_use, max_plot_points)
+    
     fig_wave = go.Figure()
-    fig_wave.add_trace(go.Scatter(x=t, y=audio_to_use, mode="lines", line=dict(color="blue")))
+    fig_wave.add_trace(go.Scatter(x=t_plot, y=audio_plot, mode="lines", line={"color": "blue"}))
     fig_wave.update_layout(xaxis_title="Tempo (s)", yaxis_title="Amplitude", height=300)
     st.plotly_chart(fig_wave, use_container_width=True)
 
-    N = len(audio_to_use)
-    yf = np.abs(np.fft.rfft(audio_to_use))
+    # Otimização do FFT para arquivos grandes
+    if len(audio_to_use) > 100000:  # Se mais de 100k amostras
+        # Usa apenas uma janela do áudio para o FFT
+        window_size = min(65536, len(audio_to_use))  # Máximo 64k amostras
+        start_idx = len(audio_to_use) // 2 - window_size // 2
+        audio_fft = audio_to_use[start_idx:start_idx + window_size]
+        st.info(f"ℹ️ FFT calculado usando janela de {window_size} amostras para otimização.")
+    else:
+        audio_fft = audio_to_use
+
+    N = len(audio_fft)
+    yf = np.abs(np.fft.rfft(audio_fft))
     xf = np.fft.rfftfreq(N, 1 / samplerate)
 
     freq_dominante = xf[np.argmax(yf)]
     st.subheader("🟣 Espectro de Frequência")
     st.markdown(f"🎯 **Frequência dominante:** {freq_dominante:.2f} Hz")
 
+    # Reduz densidade do espectro para visualização
+    xf_plot, yf_plot = reduce_plot_density(xf, yf, max_plot_points)
+
     fig_spec = go.Figure()
-    fig_spec.add_trace(go.Scatter(x=xf, y=yf, mode="lines", line=dict(color="purple")))
+    fig_spec.add_trace(go.Scatter(x=xf_plot, y=yf_plot, mode="lines", line={"color": "purple"}))
     fig_spec.update_layout(
         xaxis_title="Frequência (Hz)",
         yaxis_title="Amplitude",
-        xaxis=dict(range=[0, samplerate / 2]),
+        xaxis={"range": [0, samplerate / 2]},
         height=400
     )
     st.plotly_chart(fig_spec, use_container_width=True)
 
     st.markdown("### 5. 📤 Exportação")
 
+    # Reduz a densidade dos dados do espectro para exportação
+    export_density = min(10000, len(xf))  # Máximo 10k pontos
+    if len(xf) > export_density:
+        step = len(xf) // export_density
+        xf_export = xf[::step]
+        yf_export = yf[::step]
+        st.info(f"ℹ️ Espectro reduzido para {len(xf_export)} pontos para exportação otimizada.")
+    else:
+        xf_export = xf
+        yf_export = yf
+
     spectrum_df = pd.DataFrame({
-        "Frequência (Hz)": xf.round(2),
-        "Amplitude": yf.round(4)
+        "Frequência (Hz)": xf_export.round(2),
+        "Amplitude": yf_export.round(4)
     })
 
     csv = spectrum_df.to_csv(index=False, float_format='%.4f').encode('utf-8')
@@ -371,21 +467,33 @@ if "audio_data" in st.session_state:
         mime="text/csv"
     )
 
-    wav_io = io.BytesIO()
-    sf.write(wav_io, audio_to_use, samplerate, format='WAV')
-    wav_io.seek(0)
+    # Otimização para exportação de áudio
+    try:
+        wav_io = io.BytesIO()
+        sf.write(wav_io, audio_to_use, samplerate, format='WAV')
+        wav_io.seek(0)
 
-    audio_segment = AudioSegment.from_file(wav_io, format="wav")
-    mp3_io = io.BytesIO()
-    audio_segment.export(mp3_io, format="mp3", bitrate="192k")
-    mp3_io.seek(0)
+        audio_segment = AudioSegment.from_file(wav_io, format="wav")
+        mp3_io = io.BytesIO()
+        # Usa bitrate mais baixo para arquivos grandes
+        bitrate = "128k" if file_size_mb > 20 else "192k"
+        audio_segment.export(mp3_io, format="mp3", bitrate=bitrate)
+        mp3_io.seek(0)
 
-    st.download_button(
-        label="📥 Baixar áudio processado como MP3",
-        data=mp3_io,
-        file_name="audio_processado.mp3",
-        mime="audio/mpeg"
-    )
+        st.download_button(
+            label=f"📥 Baixar áudio processado como MP3 ({bitrate})",
+            data=mp3_io,
+            file_name="audio_processado.mp3",
+            mime="audio/mpeg"
+        )
+        
+        # Mostra informações de tamanho
+        mp3_size_mb = len(mp3_io.getvalue()) / (1024 * 1024)
+        st.info(f"📊 Tamanho do MP3: {mp3_size_mb:.1f} MB")
+        
+    except Exception as e:
+        st.error(f"❌ Erro na exportação: {str(e)}")
+        st.warning("💡 Tente reduzir a duração ou taxa de amostragem para exportar.")
 
 else:
     st.info("Envie um arquivo .wav ou grave para visualizar o espectro.")
