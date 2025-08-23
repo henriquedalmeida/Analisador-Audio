@@ -27,8 +27,9 @@ def optimize_audio_processing(data, samplerate, target_sr=22050):
         st.info(f"ℹ️ Taxa de amostragem reduzida para {target_sr} Hz para otimização (duração mantida: {original_duration:.1f}s).")
     
     # Normaliza o áudio para evitar problemas numéricos
-    if np.max(np.abs(data)) > 0:
-        data = data / np.max(np.abs(data)) * 0.95
+    max_abs = np.nanmax(np.abs(data))
+    if max_abs > 0:
+        data = data / max_abs * 0.95
     
     return data, samplerate
 
