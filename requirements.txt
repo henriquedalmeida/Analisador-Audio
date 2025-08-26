@@ -7,3 +7,4 @@ scipy
 pandas
 streamlit-audiorecorder
 noisereduce
+pyaudioop
