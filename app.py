@@ -297,7 +297,7 @@ if "audio_data" in st.session_state:
             
     elif filter_option == "Ajuste de Ganho":
         st.markdown("🎚️ Aumente ou diminua o volume do áudio.")
-        gain_db = st.slider("🔊 Ganho (em dB)", min_value=-20.0, max_value=20.0, value=0.0, step=0.5)
+        gain_db = st.slider("🔊 Ganho (em dB)", min_value=-50.0, max_value=50.0, value=0.0, step=0.5)
 
         gain_factor = 10 ** (gain_db / 20)  # Conversão de dB para fator linear
         audio_to_use = data * gain_factor
