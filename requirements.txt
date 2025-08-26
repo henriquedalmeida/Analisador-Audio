@@ -3,7 +3,7 @@ numpy
 soundfile
 pydub
 plotly
-scipy==1.10.1
+scipy
 pandas
 streamlit-audiorecorder
-noisereduce==2.0.1
+noisereduce
