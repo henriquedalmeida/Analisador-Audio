@@ -1,3 +1,15 @@
+# Patch para compatibilidade com Python 3.13+
+import sys
+try:
+    import audioop
+except ImportError:
+    try:
+        import audioop_lts as audioop
+        sys.modules['audioop'] = audioop
+    except ImportError:
+        # Fallback para sistemas sem audioop
+        pass
+
 import streamlit as st
 import numpy as np
 import soundfile as sf
@@ -106,14 +118,14 @@ uploaded_file = st.file_uploader(label="📁 Envie um arquivo .wav ou .mp3", typ
 
 with st.expander("🎤 Gravar pelo microfone"):
     st.markdown("Clique para iniciar e pare quando desejar. O tempo será exibido durante a gravação.")
-    seconds_placeholder = st.empty()
-
     audio = audiorecorder("▶️ Gravar", "⏹️ Parar")
-
+    
     if len(audio) > 0:
+        # Converter dados de áudio para formato utilizável
         audio_buffer = io.BytesIO()
         audio.export(audio_buffer, format="wav")
         audio_bytes = audio_buffer.getvalue()
+        
         st.audio(audio_bytes, format="audio/wav")
         st.session_state["audio_data"] = audio_bytes
         st.session_state["audio_name"] = "gravado.wav"
