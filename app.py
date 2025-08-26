@@ -1,19 +1,69 @@
 # Patch para compatibilidade com Python 3.13+
 import sys
+import io
+import struct
+import array
+
+# Criar um módulo audioop fake com as funções essenciais
+class FakeAudioop:
+    @staticmethod
+    def mul(fragment, width, factor):
+        """Multiply samples by a factor"""
+        if width == 2:
+            # Para samples de 16-bit
+            samples = array.array('h', fragment)
+            for i in range(len(samples)):
+                samples[i] = int(samples[i] * factor)
+            return samples.tobytes()
+        return fragment
+    
+    @staticmethod
+    def tomono(fragment, width, lfactor, rfactor):
+        """Convert stereo to mono"""
+        if width == 2:
+            samples = array.array('h', fragment)
+            mono_samples = array.array('h')
+            for i in range(0, len(samples), 2):
+                if i + 1 < len(samples):
+                    left = samples[i] * lfactor
+                    right = samples[i + 1] * rfactor
+                    mono_samples.append(int((left + right) / 2))
+                else:
+                    mono_samples.append(samples[i])
+            return mono_samples.tobytes()
+        return fragment
+    
+    @staticmethod
+    def tostereo(fragment, width, lfactor, rfactor):
+        """Convert mono to stereo"""
+        if width == 2:
+            samples = array.array('h', fragment)
+            stereo_samples = array.array('h')
+            for sample in samples:
+                stereo_samples.append(int(sample * lfactor))
+                stereo_samples.append(int(sample * rfactor))
+            return stereo_samples.tobytes()
+        return fragment
+    
+    @staticmethod
+    def reverse(fragment, width):
+        """Reverse audio samples"""
+        if width == 2:
+            samples = array.array('h', fragment)
+            samples.reverse()
+            return samples.tobytes()
+        return fragment
+
+# Tentar importar audioop real, senão usar o fake
 try:
     import audioop
 except ImportError:
-    try:
-        import audioop_lts as audioop
-        sys.modules['audioop'] = audioop
-    except ImportError:
-        # Fallback para sistemas sem audioop
-        pass
+    audioop = FakeAudioop()
+    sys.modules['audioop'] = audioop
 
 import streamlit as st
 import numpy as np
 import soundfile as sf
-import io
 from audiorecorder import audiorecorder
 from pydub import AudioSegment
 import plotly.graph_objs as go
